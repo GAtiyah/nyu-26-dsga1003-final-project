@@ -1,0 +1,68 @@
+{
+  "validation": {
+    "num_examples": 2561,
+    "num_target_tokens": 245856,
+    "loss": 2.7487243838287276,
+    "perplexity": 15.62269061140449,
+    "by_source": {
+      "wikitext": {
+        "num_examples": 1175,
+        "num_target_tokens": 112800,
+        "loss": 3.2342700835322655,
+        "perplexity": 25.3878340160338
+      },
+      "medical": {
+        "num_examples": 1386,
+        "num_target_tokens": 133056,
+        "loss": 2.337096533734045,
+        "perplexity": 10.351138707770364
+      }
+    }
+  },
+  "test": {
+    "num_examples": 2555,
+    "num_target_tokens": 245280,
+    "loss": 2.7694273488939936,
+    "perplexity": 15.949497896530318,
+    "by_source": {
+      "wikitext": {
+        "num_examples": 1227,
+        "num_target_tokens": 117792,
+        "loss": 3.229149471965376,
+        "perplexity": 25.258165055037523
+      },
+      "medical": {
+        "num_examples": 1328,
+        "num_target_tokens": 127488,
+        "loss": 2.344669021636128,
+        "perplexity": 10.42982011141386
+      }
+    }
+  },
+  "model_type": "prompt_conditioned_residual",
+  "checkpoint_path": "D:\\\u5927\u5b66\u8bfe\u7a0b graduate\\2_DS 1003\\nyu-26-dsga1003-final-project\\artifact\\checkpoints\\prompt_conditioned\\trained_model.pt",
+  "batch_size": 16,
+  "device": "cuda",
+  "model_dtype": "torch.bfloat16",
+  "train_config": {
+    "model_type": "prompt_conditioned_residual",
+    "base_model_dir": "D:\\\u5927\u5b66\u8bfe\u7a0b graduate\\2_DS 1003\\nyu-26-dsga1003-final-project\\artifact\\model\\qwen3_0_6b",
+    "train_data": "D:\\\u5927\u5b66\u8bfe\u7a0b graduate\\2_DS 1003\\nyu-26-dsga1003-final-project\\artifact\\data\\prepared\\train.arrow",
+    "output_dir": "D:\\\u5927\u5b66\u8bfe\u7a0b graduate\\2_DS 1003\\nyu-26-dsga1003-final-project\\artifact\\checkpoints\\prompt_conditioned",
+    "batch_size": 8,
+    "gradient_accumulation_steps": 4,
+    "effective_batch_size": 32,
+    "num_epochs": 1,
+    "learning_rate": 0.001,
+    "weight_decay": 0,
+    "gradient_clip_norm": 1.0,
+    "log_every": 50,
+    "max_train_steps": null,
+    "mlp_hidden_size": 256,
+    "rms_norm_eps": 1e-06,
+    "attn_implementation": "sdpa",
+    "device": "cuda",
+    "model_dtype": "torch.bfloat16",
+    "num_layers": 28
+  }
+}

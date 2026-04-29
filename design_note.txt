@@ -1,0 +1,128 @@
+DS 1003 Final Project: Design Notes Beyond Proposal
+Date: 2026-04-29
+
+This note summarizes implementation and experiment-design decisions made after the original proposal. It focuses on choices that are either different from the proposal or much more concrete than what the proposal described.
+
+1. Specialized corpus choice changed
+- The proposal mentioned PubMed abstracts.
+- In implementation, PubMed was replaced with a smaller and easier-to-manage specialized corpus: Hugging Face dataset `TimSchopf/medical_abstracts`.
+- Reason: the full PubMed option was too large and awkward for our lightweight course-project workflow, while `medical_abstracts` is clearly domain-specific and much closer to WikiText in practical scale.
+
+2. Task formulation was made more concrete
+- The proposal described prompt-answer pairs abstractly.
+- The implemented setup uses text continuation as pseudo prompt-answer supervision:
+  - prompt = first fixed token span
+  - answer = next fixed token span
+- This keeps the project simple and comparable across all models while still matching the main idea of prompt-conditioned adaptation.
+
+3. Data organization was standardized
+- Raw downloaded data is stored under `artifact/data/raw/`.
+- Final prepared training/evaluation data is stored under `artifact/data/prepared/`.
+- This separates immutable raw inputs from processed experiment artifacts.
+
+4. Preprocessing pipeline was simplified into one script
+- Instead of keeping corpus mixing and prompt/answer creation as two separate persistent stages, they were merged into one final preprocessing script:
+  - `script/1_prepare_data.py`
+- The script now:
+  - loads raw corpora
+  - cleans and normalizes text
+  - rebuilds WikiText into document-like units
+  - creates deterministic train/validation/test splits
+  - tokenizes with local Qwen tokenizer
+  - creates fixed prompt/answer continuation pairs
+  - saves only the final prepared Arrow files
+
+5. Final prepared dataset format was fixed
+- Prepared data is stored as:
+  - `artifact/data/prepared/train.arrow`
+  - `artifact/data/prepared/validation.arrow`
+  - `artifact/data/prepared/test.arrow`
+  - `artifact/data/prepared/summary.json`
+- Intermediate duplicated dataset formats such as extra JSONL exports were removed to reduce redundancy.
+
+6. Model choice stayed the same, but implementation details were fixed
+- Base model remains `Qwen/Qwen3-0.6B`.
+- The local tokenizer and model are downloaded once and stored under `artifact/model/qwen3_0_6b`.
+
+7. Baselines and training scope were clarified
+- Stage 2 trains two models only:
+  - static residual weighting baseline
+  - prompt-conditioned residual weighting model
+- The untouched frozen Qwen model is treated as an evaluation baseline, not a trainable baseline.
+
+8. Static residual implementation was concretized
+- Static baseline uses one learned scalar residual multiplier per decoder layer.
+- The base Qwen model is frozen.
+- Layer residual scaling is applied by wrapping decoder layer outputs and rescaling each layer delta relative to its input.
+
+9. Prompt-conditioned module design was concretized
+- Prompt-conditioned model uses:
+  - final prompt-token hidden state from the frozen base model
+  - a small dense MLP
+  - SiLU activation
+  - RMSNorm inside the MLP
+- The MLP predicts one residual scaling value per decoder layer.
+
+10. Training defaults were chosen for RTX 4080 laptop 12GB VRAM
+- Current default training configuration is lightweight and laptop-friendly.
+- Important defaults:
+  - micro-batch size = 8
+  - gradient accumulation = 4
+  - effective batch size = 32
+  - short sequence setup from preprocessing
+- Training utilities also use mixed precision and conservative runtime optimizations.
+
+11. Training acceleration work was added
+- Implemented speed-oriented changes include:
+  - progress bars
+  - mixed precision autocast
+  - modern `dtype` model loading
+  - modern `torch.amp.GradScaler`
+  - pinned-memory dataloader path on CUDA
+  - TF32-enabled runtime on CUDA
+  - SDPA attention backend by default
+  - lower Python overhead in Arrow dataset loading
+  - prompt hidden-state caching for the prompt-conditioned model
+
+12. Stage 2 and Stage 3 script structure was finalized
+- Training scripts:
+  - `script/2_train_static.py`
+  - `script/2_train_prompt_conditioned.py`
+- Shared training helpers:
+  - `script/_training_utils.py`
+  - `script/_residual_modules.py`
+- Evaluation scripts:
+  - `script/3_eval_frozen_base.py`
+  - `script/3_eval_static.py`
+  - `script/3_eval_prompt_conditioned.py`
+- Shared evaluation helpers:
+  - `script/_eval_utils.py`
+
+13. Evaluation outputs were defined more concretely than in the proposal
+- Evaluation currently records:
+  - validation loss
+  - validation perplexity
+  - test loss
+  - test perplexity
+  - per-source metrics for `wikitext` and `medical`
+- This means mixed and per-domain comparisons are already part of the implemented evaluation path.
+
+14. Repository tracking policy was decided
+- The repository now keeps:
+  - source code
+  - processed data
+  - metrics/results
+  - future plots/tables
+- The repository ignores:
+  - downloaded local model files
+  - training checkpoints
+  - `.pt` and related large binary artifacts
+  - caches and Python temporary files
+
+15. Current experiment story
+- The actual implemented experiment is now best described as:
+  - a frozen Qwen3-0.6B language model
+  - trained on mixed general-domain and specialized-domain continuation data
+  - comparing static layerwise residual scaling against prompt-conditioned layerwise residual scaling
+  - evaluating both overall and per-domain performance
+- This is fully consistent with the core research question in the proposal, but is now much more operationally defined.
