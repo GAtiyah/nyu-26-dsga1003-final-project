@@ -7,43 +7,27 @@ from torch import nn
 from transformers import AutoModelForCausalLM
 
 
-class SimpleRMSNorm(nn.Module):
-    """A minimal RMSNorm used inside the prompt-conditioned MLP."""
-
-    def __init__(self, hidden_size: int, eps: float = 1e-6) -> None:
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(hidden_size))
-        self.eps = eps
-
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        variance = hidden_states.pow(2).mean(dim=-1, keepdim=True)
-        normalized = hidden_states * torch.rsqrt(variance + self.eps)
-        return normalized * self.weight
-
-
 class PromptConditionedMLP(nn.Module):
-    """A small dense MLP with SiLU and RMSNorm for prompt conditioning."""
+    """A small dense MLP with two hidden layers for prompt conditioning."""
 
     def __init__(
         self,
         input_size: int,
         hidden_size: int,
         output_size: int,
-        eps: float = 1e-6,
     ) -> None:
         super().__init__()
-        self.input_norm = SimpleRMSNorm(input_size, eps=eps)
         self.fc1 = nn.Linear(input_size, hidden_size)
-        self.hidden_norm = SimpleRMSNorm(hidden_size, eps=eps)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.act = nn.SiLU()
-        self.fc2 = nn.Linear(hidden_size, output_size)
+        self.fc3 = nn.Linear(hidden_size, output_size)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        hidden_states = self.input_norm(hidden_states)
         hidden_states = self.fc1(hidden_states)
         hidden_states = self.act(hidden_states)
-        hidden_states = self.hidden_norm(hidden_states)
         hidden_states = self.fc2(hidden_states)
+        hidden_states = self.act(hidden_states)
+        hidden_states = self.fc3(hidden_states)
         return hidden_states
 
 
@@ -158,15 +142,15 @@ class PromptConditionedResidualModel(ResidualScalingModelBase):
         self,
         base_model: AutoModelForCausalLM,
         mlp_hidden_size: int,
-        rms_norm_eps: float = 1e-6,
+        rms_norm_eps: float | None = None,
     ) -> None:
         super().__init__(base_model=base_model)
+        del rms_norm_eps
         self.prompt_hidden_cache: dict[str, torch.Tensor] = {}
         self.conditioner = PromptConditionedMLP(
             input_size=self.base_model.config.hidden_size,
             hidden_size=mlp_hidden_size,
             output_size=self.num_layers,
-            eps=rms_norm_eps,
         )
 
     def get_prompt_hidden(
@@ -234,7 +218,7 @@ class PromptConditionedResidualModel(ResidualScalingModelBase):
             example_id=example_id,
         )
         raw_scales = self.conditioner(prompt_hidden)
-        return 1.0 + torch.tanh(raw_scales)
+        return 1.0 + 0.1 * raw_scales
 
     def forward(
         self,
