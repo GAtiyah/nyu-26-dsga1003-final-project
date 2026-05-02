@@ -112,7 +112,7 @@ This note summarizes implementation and experiment-design decisions made after t
   - lower Python overhead in Arrow dataset loading
   - prompt hidden-state caching for the prompt-conditioned model
 
-13. Stage 2 and Stage 3 script structure was finalized
+13. Stage 2, Stage 3, and Stage 4 script structure was finalized
 - Training scripts:
   - `script/2_train_static.py`
   - `script/2_train_prompt_conditioned.py`
@@ -127,10 +127,36 @@ This note summarizes implementation and experiment-design decisions made after t
   - `script/3_eval_prompt_conditioned.py`
   - `script/3_eval_static_reaggregation.py`
   - `script/3_eval_prompt_conditioned_reaggregation.py`
+- Stage 4 inspection script:
+  - `script/4_inspect_MLPs.py`
 - Shared evaluation helpers:
   - `script/_eval_utils.py`
 
-14. Evaluation outputs were defined more concretely than in the proposal
+14. Stage 4 prompt-conditioned MLP inspection was defined
+- Before broader meta-analysis and plotting, the project now includes one lightweight inspection stage focused on MLP collapse.
+- The Stage 4 script:
+  - samples relatively small subsets from validation and test
+  - extracts the raw MLP outputs from the two prompt-conditioned models before the final `1.0 + 0.1 * output` transform
+  - computes one collapse summary:
+    - average pairwise cosine similarity over all sampled examples
+  - computes one domain-separation summary:
+    - average of within-domain cosine similarities minus between-domain cosine similarity
+  - computes per-layer variance of the raw outputs and one overall mean variance
+  - computes per-layer domain-mean difference and one overall mean difference
+- The domain-separation cosine gap is defined as:
+  - `0.5 * (within_wikitext_cosine + within_medical_cosine) - between_domain_cosine`
+  - where `within_*` is average pairwise cosine similarity inside one domain and `between_domain_cosine` is the average cosine similarity across `wikitext` and `medical`
+- The per-layer domain-mean difference is defined as:
+  - first compute the mean raw MLP output over sampled `wikitext` examples
+  - then compute the mean raw MLP output over sampled `medical` examples
+  - take the absolute difference between those two mean outputs
+  - for the write-strength model, this directly yields one value per layer
+  - for the re-aggregation model, the lower-triangular outputs are grouped by target layer and averaged within each layer
+- For the write-strength model, per-layer variance is computed directly over the 28 output dimensions.
+- For the re-aggregation model, the raw lower-triangular output vector is grouped by target layer so the per-layer summaries stay interpretable.
+- The Stage 4 output is a JSON summary only. Plotting and figure-making are intentionally deferred to the later meta-analysis stage.
+
+15. Evaluation outputs were defined more concretely than in the proposal
 - Evaluation currently records:
   - validation loss
   - validation perplexity
@@ -139,7 +165,7 @@ This note summarizes implementation and experiment-design decisions made after t
   - per-source metrics for `wikitext` and `medical`
 - This means mixed and per-domain comparisons are already part of the implemented evaluation path.
 
-15. Repository tracking policy was decided
+16. Repository tracking policy was decided
 - The repository now keeps:
   - source code
   - processed data
@@ -151,7 +177,7 @@ This note summarizes implementation and experiment-design decisions made after t
   - `.pt` and related large binary artifacts
   - caches and Python temporary files
 
-16. Current experiment story
+17. Current experiment story
 - The actual implemented experiment is now best described as:
   - a frozen Qwen3-0.6B language model
   - trained on mixed general-domain and specialized-domain continuation data

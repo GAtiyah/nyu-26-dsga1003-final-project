@@ -27,3 +27,9 @@ python script/3_eval_static.py
 python script/3_eval_prompt_conditioned.py
 python script/3_eval_static_reaggregation.py
 python script/3_eval_prompt_conditioned_reaggregation.py
+
+
+
+# Stage 4, inspect prompt-conditioned MLP outputs
+
+python script/4_inspect_MLPs.py
