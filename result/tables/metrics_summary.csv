@@ -1,0 +1,6 @@
+model_key,model,validation_loss,validation_perplexity,test_loss,test_perplexity,test_wikitext_loss,test_wikitext_perplexity,test_medical_loss,test_medical_perplexity,test_ppl_reduction_percent
+frozen_base,Frozen base,2.800845,16.458543,2.822189,16.813608,3.297903,27.055844,2.382654,10.833619,0.000
+static_write_strength,Static write-strength,2.744211,15.552341,2.765325,15.884209,3.223657,25.119824,2.341852,10.400477,5.528
+prompt_write_strength,Prompt-conditioned write-strength,2.741479,15.509907,2.762420,15.838124,3.220064,25.029724,2.339582,10.376894,5.802
+static_reaggregation,Static re-aggregation,2.713961,15.088920,2.733030,15.379420,3.178396,24.008204,2.321537,10.191325,8.530
+prompt_reaggregation,Prompt-conditioned re-aggregation,2.704579,14.948022,2.723318,15.230767,3.166782,23.730993,2.313580,10.110560,9.414
