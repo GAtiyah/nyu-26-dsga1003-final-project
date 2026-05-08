@@ -1,0 +1,19 @@
+name: residual-reaggregation
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pytorch>=2.3
+  - pytorch-cuda=12.1
+  - numpy>=1.26,<2
+  - pyarrow>=15,<17
+  - tqdm>=4.66
+  - matplotlib>=3.8
+  - pip:
+      - transformers>=4.51
+      - datasets>=2.19
+      - huggingface_hub>=0.23

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 from datasets import Dataset, DatasetDict, load_dataset
@@ -67,6 +68,21 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Redownload model and datasets even if they already exist locally.",
     )
+    parser.add_argument(
+        "--model-download-workers",
+        type=int,
+        default=1,
+        help=(
+            "Number of parallel Hugging Face model download workers. "
+            "Default: 1, which is slower but more reliable on unstable networks."
+        ),
+    )
+    parser.add_argument(
+        "--model-download-retries",
+        type=int,
+        default=3,
+        help="Number of full model download attempts before failing. Default: 3.",
+    )
     return parser.parse_args()
 
 
@@ -74,18 +90,57 @@ def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def download_model(model_id: str, model_dir: Path, force_redownload: bool) -> None:
-    if model_dir.exists() and any(model_dir.iterdir()) and not force_redownload:
+def model_snapshot_complete(model_dir: Path) -> bool:
+    if not model_dir.exists():
+        return False
+    has_config = (model_dir / "config.json").is_file()
+    has_weights = any(model_dir.glob("*.safetensors")) or any(model_dir.glob("*.bin"))
+    has_incomplete_downloads = any(model_dir.rglob("*.incomplete"))
+    return has_config and has_weights and not has_incomplete_downloads
+
+
+def download_model(
+    model_id: str,
+    model_dir: Path,
+    force_redownload: bool,
+    max_workers: int,
+    retries: int,
+) -> None:
+    if model_snapshot_complete(model_dir) and not force_redownload:
         print(f"[skip] Model already exists at: {model_dir}")
         return
+    if model_dir.exists() and any(model_dir.iterdir()) and not force_redownload:
+        print(f"[resume] Incomplete model snapshot found at: {model_dir}")
 
     print(f"[download] Model: {model_id}")
     ensure_dir(model_dir)
-    snapshot_download(
-        repo_id=model_id,
-        local_dir=str(model_dir),
-        force_download=force_redownload,
-    )
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            print(f"[download] Model attempt {attempt}/{retries} with {max_workers} worker(s)")
+            snapshot_download(
+                repo_id=model_id,
+                local_dir=str(model_dir),
+                force_download=force_redownload,
+                max_workers=max_workers,
+            )
+            if not model_snapshot_complete(model_dir):
+                raise RuntimeError(
+                    "Model snapshot is still incomplete after download attempt. "
+                    "Expected config.json, at least one weight file (*.safetensors or *.bin), "
+                    "and no *.incomplete files."
+                )
+            break
+        except Exception as exc:
+            last_error = exc
+            if attempt == retries:
+                raise
+            wait_seconds = min(30, 2**attempt)
+            print(f"[warn] Model download failed: {exc}")
+            print(f"[warn] Retrying in {wait_seconds}s; completed files will be reused.")
+            time.sleep(wait_seconds)
+    else:
+        raise RuntimeError("Model download failed without raising an explicit error.") from last_error
     print(f"[done] Model saved to: {model_dir}")
 
 
@@ -165,6 +220,8 @@ def main() -> None:
         model_id=args.model_id,
         model_dir=model_dir,
         force_redownload=args.force_redownload,
+        max_workers=args.model_download_workers,
+        retries=args.model_download_retries,
     )
     download_and_save_dataset(
         dataset_name=args.wikitext_dataset,
